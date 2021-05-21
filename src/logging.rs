@@ -1,11 +1,11 @@
-pub trait LogImp {
-    fn output(&self, content: &String);
-}
+// pub trait LogImp {
+//     fn output(&self, content: &String);
+// }
 
-struct TerminalLog {}
+// struct TerminalLog {}
 
-impl LogImp for TerminalLog {
-    fn output(&self, content: &String) {
-        print!("{}", content)
-    }
-}
+// impl LogImp for TerminalLog {
+//     fn output(&self, content: &String) {
+//         print!("{}", content)
+//     }
+// }

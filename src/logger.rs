@@ -1,5 +1,3 @@
-use crate::logging;
-use std::env;
 use std::time::SystemTime;
 
 #[derive(Copy, Clone)]
@@ -12,83 +10,60 @@ pub enum LogLevel {
     FATAL,
 }
 
-static mut flag: bool = logToTerminal();
+type LogOutput = fn(&String);
 
-const fn logToTerminal() -> bool {
-    match env::var("LOG_TERMINAL") {
-        Ok(val) => {
-            if val == "on" {
-                true
-            } else {
-                false
-            }
-        }
-        Err(_) => true,
-    }
+fn DefaultOutput(content: &String) {
+    print!("{}", content)
 }
 
-pub struct Logger<T: logging::LogImp> {
-    // level: LogLevel,
-    // file: String,
-    // line: u32,
-    // t: Time,
-    // buf: buffer::Buffer,
-    logging: T,
-}
+static mut g_output: LogOutput = DefaultOutput;
 
-fn level2str(level: LogLevel) -> String {
+pub struct Logger {}
+
+fn level2str(level: LogLevel) -> &'static str {
     match level {
-        LogLevel::TRACE => String::from("TRACE"),
-        LogLevel::DEBUG => String::from("DEBUG"),
-        LogLevel::INFO => String::from("INFO"),
-        LogLevel::WARN => String::from("WARN"),
-        LogLevel::ERROR => String::from("ERROR"),
-        LogLevel::FATAL => String::from("FATAL"),
+        LogLevel::TRACE => "TRACE",
+        LogLevel::DEBUG => "DEBUG",
+        LogLevel::INFO => "INFO",
+        LogLevel::WARN => "WARN",
+        LogLevel::ERROR => "ERROR",
+        LogLevel::FATAL => "FATAL",
     }
 }
 
-impl<T: logging::LogImp> Logger<T> {
-    // FIXME : use file:&String replace file:String for performance?
-    fn new(imp: T) -> Logger<T> {
-        Logger { logging: imp }
+impl Logger {
+    pub fn level() -> LogLevel {
+        LogLevel::DEBUG
     }
 
-    fn level() -> LogLevel {
-        LogLevel::INFO
-    }
-
-    fn log(&mut self, l: LogLevel, time: Time, file: &String, line: u32, content: String) {
-        let s = format!("{} {} {} {} {}\n", level2str(l), time, file, line, &content);
-        self.logging.output(&s)
-    }
-}
-
-macro_rules! log {
-    ($level:expr, $($arg:tt)*) => {
-        Logger::new().log($level, nowtime(), file!(), line!, format!($($arg)*))
-    };
-}
-
-macro_rules! debug {
-    ($($arg:tt)*) => {
-        if Logger::level() as u8 <= LogLevel::DEBUG as u8 {
-            log!(LogLevel::DEBUG, $($arg)*);
+    fn setOutput(f: LogOutput) {
+        // don't call this function in different threads.
+        // we should only call this function once when initing the whole library, like in the main function.
+        unsafe {
+            g_output = f;
         }
-    };
-}
+    }
 
-// #[macro_export]
-macro_rules! info {
-    ($($arg:tt)*) => {
-        if Logger::level() as u8 <= LogLevel::INFO as u8 {
-            log!(LogLevel::INFO, $($arg)*);
-        }
-    };
+    pub fn log(l: LogLevel, time: Time, file: &str, line: u32, content: String) {
+        let s = format!("{} {} {} {} {}\n", level2str(l), time, file, line, content);
+        unsafe { g_output(&s) }
+    }
+
+    // pub fn log<S: AsRef<str> + std::fmt::Display>(
+    //     l: LogLevel,
+    //     time: Time,
+    //     file: &String,
+    //     line: u32,
+    //     content: S,
+    // ) {
+    //     let s = format!("{} {} {} {} {}\n", level2str(l), time, file, line, content);
+    //     unsafe { g_output(&s) }
+    // }
 }
 
 type Time = u64;
 
-fn nowtime() -> Time {
+pub fn nowtime() -> Time {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap()
