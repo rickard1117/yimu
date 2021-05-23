@@ -1,24 +1,47 @@
 use std::time::SystemTime;
 
-#[derive(Copy, Clone)]
-pub enum LogLevel {
-    TRACE = 1,
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR,
-    FATAL,
-}
-
-type LogOutput = fn(&String);
-
 fn DefaultOutput(content: &String) {
-    print!("{}", content)
+    println!("{}", content);
 }
 
-static mut g_output: LogOutput = DefaultOutput;
+static mut g_log_output: fn(&String) = DefaultOutput;
+static mut g_log_level: LogLevel = LogLevel::DEBUG;
 
 pub struct Logger {}
+
+impl Logger {
+    pub fn setOutput(f: fn(&String)) {
+        unsafe {
+            g_log_output = f;
+        }
+    }
+
+    pub fn setLevel(level: LogLevel) {
+        unsafe {
+            g_log_level = level;
+        }
+    }
+
+    pub fn level() -> LogLevel {
+        unsafe { g_log_level }
+    }
+
+    pub fn log(l: LogLevel, time: Time, file: &str, line: u32, content: String) {
+        let s = format!("{} {} {} {} {}\n", level2str(l), time, file, line, content);
+        unsafe {
+            g_log_output(&s);
+        }
+    }
+}
+
+type Time = u64;
+
+pub fn nowtime() -> Time {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
 
 fn level2str(level: LogLevel) -> &'static str {
     match level {
@@ -31,41 +54,12 @@ fn level2str(level: LogLevel) -> &'static str {
     }
 }
 
-impl Logger {
-    pub fn level() -> LogLevel {
-        LogLevel::DEBUG
-    }
-
-    fn setOutput(f: LogOutput) {
-        // don't call this function in different threads.
-        // we should only call this function once when initing the whole library, like in the main function.
-        unsafe {
-            g_output = f;
-        }
-    }
-
-    pub fn log(l: LogLevel, time: Time, file: &str, line: u32, content: String) {
-        let s = format!("{} {} {} {} {}\n", level2str(l), time, file, line, content);
-        unsafe { g_output(&s) }
-    }
-
-    // pub fn log<S: AsRef<str> + std::fmt::Display>(
-    //     l: LogLevel,
-    //     time: Time,
-    //     file: &String,
-    //     line: u32,
-    //     content: S,
-    // ) {
-    //     let s = format!("{} {} {} {} {}\n", level2str(l), time, file, line, content);
-    //     unsafe { g_output(&s) }
-    // }
-}
-
-type Time = u64;
-
-pub fn nowtime() -> Time {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
+#[derive(Copy, Clone)]
+pub enum LogLevel {
+    TRACE = 1,
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR,
+    FATAL,
 }
